@@ -17,7 +17,7 @@ def clean_time(value):
     if not value:
         return None
 
-    # match HH:MM:SS
+    # For matching the time format. 
     match = re.search(r"\b\d{2}:\d{2}:\d{2}\b", value)
 
     if match:
@@ -29,12 +29,12 @@ def fix_merged_columns(parts):
     fixed = []
 
     for item in parts:
-        # detect pattern: number + space + text
+        # To remove garbage values.
         match = re.match(r"^(\d+\.\d+)\s+([A-Za-z]+)$", item)
 
         if match:
-            fixed.append(match.group(1))  # number
-            fixed.append(match.group(2))  # name
+            fixed.append(match.group(1))  
+            fixed.append(match.group(2))  
         else:
             fixed.append(item)
 

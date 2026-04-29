@@ -11,7 +11,7 @@ HOST = os.getenv("HOST")
 PORT = int(os.getenv("PORT"))
 
 coil_cache = {}
-#  DB CONNECTION (single)
+
 def get_connection():
     conn_str = (
         f"DRIVER={{{os.getenv('DB_DRIVER')}}};"
@@ -24,14 +24,14 @@ def get_connection():
     return pyodbc.connect(conn_str)
 
 def get_coil_fk(cursor, coil_id):
+
     if not coil_id:
         return None
 
-    #  check cache first
     if coil_id in coil_cache:
         return coil_cache[coil_id]
 
-    #  check DB
+    # If coil_id missing in cache then hit DB. 
     cursor.execute("SELECT id FROM coil_info WHERE coil_id = ?", (coil_id,))
     row = cursor.fetchone()
 
@@ -39,7 +39,7 @@ def get_coil_fk(cursor, coil_id):
         coil_cache[coil_id] = row[0]
         return row[0]
 
-    #  insert new coil
+    # Coil appeared first time - Insert that into db. 
     cursor.execute("INSERT INTO coil_info (coil_id) VALUES (?)", (coil_id,))
     cursor.execute("SELECT LAST_INSERT_ID()")
     new_id = cursor.fetchone()[0]
@@ -47,12 +47,12 @@ def get_coil_fk(cursor, coil_id):
     coil_cache[coil_id] = new_id
     return new_id
 
-#  CSV parser
+
 def parse_csv(text):
     reader = csv.reader(io.StringIO(text))
     return list(reader)
 
-#  Safe getter
+#  This function is designed for handing empty values.
 def safe_get(row, index, default=None):
     try:
         value = row[index].strip()
@@ -60,7 +60,7 @@ def safe_get(row, index, default=None):
     except IndexError:
         return default
 
-#  BULK INSERT (FAST)
+
 def insert_rows(cursor, conn, rows):
     query = """
     INSERT INTO production_data (
@@ -85,7 +85,7 @@ def insert_rows(cursor, conn, rows):
             safe_get(row, 1, None),
             safe_get(row, 2, ""),
             safe_get(row, 3, ""),
-            coil_fk,   #  replaced coil_id
+            coil_fk,  
             safe_get(row, 5, None),
             safe_get(row, 6, None),
             safe_get(row, 7, None),
@@ -124,11 +124,9 @@ def handle_client(client_socket, cursor, conn):
                 if not row:
                     continue
 
-                #  skip bad rows
                 if len(row) < 2:
                     continue
 
-                #  skip delimiter garbage
                 if row[0].startswith("---"):
                     continue
 
@@ -142,8 +140,6 @@ def handle_client(client_socket, cursor, conn):
 
     client_socket.sendall(b"FILE PROCESSED")
 
-
-#  SERVER START
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, PORT))
@@ -151,7 +147,6 @@ def start_server():
 
     print(f"Server running on {HOST}:{PORT}...")
 
-    #  SINGLE DB CONNECTION
     conn = get_connection()
     cursor = conn.cursor()
 
