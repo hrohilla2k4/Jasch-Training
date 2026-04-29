@@ -58,15 +58,15 @@ def clean_file_generator(file_path):
             parts = [p.strip() for p in temp_line.split(",")]
             parts = fix_merged_columns(parts)
 
-            # 🔥 wait until we have enough columns
+            #  wait until we have enough columns
             if len(parts) < 12:
                 continue
 
-            # 🔥 take first 12 columns
+            #  take first 12 columns
             parts = parts[:12]
             buffer = ""   # reset for next row
 
-            # 🔥 fix date
+            #  fix date
             try:
                 d, m, y = parts[0].split("/")
                 if len(y) == 2:
@@ -76,7 +76,7 @@ def clean_file_generator(file_path):
             except:
                 continue
 
-            # 🔥 numeric defaults
+            #  numeric defaults
             numeric_indexes = [5, 6, 7, 9]
             for i in numeric_indexes:
                 if parts[i] == "":
@@ -120,5 +120,5 @@ def send_batch(client, batch):
 
 
 if __name__ == "__main__":
-    file_path = "D:/games/Report232/Report232/2025_07_12_A.txt"   
+    file_path = "D:/games/Report232/Report232/2025_07_08_C.txt"   
     send_file_in_batches(file_path)

@@ -1,4 +1,4 @@
-    let chart;
+let chart;
 
 async function loadData() {
     const type = document.getElementById("type").value;

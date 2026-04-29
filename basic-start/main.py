@@ -10,7 +10,8 @@ load_dotenv()
 HOST = os.getenv("HOST")
 PORT = int(os.getenv("PORT"))
 
-# 🔥 DB CONNECTION (single)
+coil_cache = {}
+#  DB CONNECTION (single)
 def get_connection():
     conn_str = (
         f"DRIVER={{{os.getenv('DB_DRIVER')}}};"
@@ -22,12 +23,36 @@ def get_connection():
     )
     return pyodbc.connect(conn_str)
 
-# 🔥 CSV parser
+def get_coil_fk(cursor, coil_id):
+    if not coil_id:
+        return None
+
+    #  check cache first
+    if coil_id in coil_cache:
+        return coil_cache[coil_id]
+
+    #  check DB
+    cursor.execute("SELECT id FROM coil_info WHERE coil_id = ?", (coil_id,))
+    row = cursor.fetchone()
+
+    if row:
+        coil_cache[coil_id] = row[0]
+        return row[0]
+
+    #  insert new coil
+    cursor.execute("INSERT INTO coil_info (coil_id) VALUES (?)", (coil_id,))
+    cursor.execute("SELECT LAST_INSERT_ID()")
+    new_id = cursor.fetchone()[0]
+
+    coil_cache[coil_id] = new_id
+    return new_id
+
+#  CSV parser
 def parse_csv(text):
     reader = csv.reader(io.StringIO(text))
     return list(reader)
 
-# 🔥 Safe getter
+#  Safe getter
 def safe_get(row, index, default=None):
     try:
         value = row[index].strip()
@@ -35,11 +60,11 @@ def safe_get(row, index, default=None):
     except IndexError:
         return default
 
-# 🔥 BULK INSERT (FAST)
+#  BULK INSERT (FAST)
 def insert_rows(cursor, conn, rows):
     query = """
     INSERT INTO production_data (
-        date_col, time_col, direction, load_status, coil_id,
+        date_col, time_col, direction, load_status, coil_fk,
         line_speed, set_point, actual_thickness,
         name, width, alloy
     )
@@ -52,16 +77,19 @@ def insert_rows(cursor, conn, rows):
         if len(row) < 11:
             continue
 
+        coil_id = safe_get(row, 4, None)
+        coil_fk = get_coil_fk(cursor, coil_id)   #  NEW
+
         data_to_insert.append((
             safe_get(row, 0, None),
             safe_get(row, 1, None),
             safe_get(row, 2, ""),
             safe_get(row, 3, ""),
-            safe_get(row, 4, ""),
+            coil_fk,   #  replaced coil_id
             safe_get(row, 5, None),
             safe_get(row, 6, None),
             safe_get(row, 7, None),
-            safe_get(row, 8, None),   # name → NULL if empty
+            safe_get(row, 8, None),
             safe_get(row, 9, None),
             safe_get(row, 10, "")
         ))
@@ -72,7 +100,7 @@ def insert_rows(cursor, conn, rows):
         print(f"Inserted {len(data_to_insert)} rows")
 
 
-# 🔥 HANDLE CLIENT (BATCH STREAMING)
+#  HANDLE CLIENT (BATCH STREAMING)
 def handle_client(client_socket, cursor, conn):
     buffer = ""
 
