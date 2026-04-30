@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body onload="loadData()">
+    <h2>Histogram Data</h2> 
+    <button onclick="openModal()">Add Deviation Points</button>
+
+    <div id="modal" style="display:none;">
+        <input type="number" id="deviation" placeholder="Enter deviation">
+        <button onclick="applyDeviation()">Apply</button>
+    </div>
+
+    <div id="inRangePct"></div>
+<div id="outRangePct"></div>
+<p id="totalLength"></p>
+    <canvas id="chart"></canvas>
+
+
+<script src="histogram_script.js">
+
+
+</script>
+
+</body>
+</html>

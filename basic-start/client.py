@@ -120,5 +120,5 @@ def send_batch(client, batch):
 
 
 if __name__ == "__main__":
-    file_path = "D:/games/Report232/Report232/2025_07_08_C.txt"   
+    file_path = "D:/games/Report232/Report232/2025_07_15_B.txt"   
     send_file_in_batches(file_path)
