@@ -14,14 +14,6 @@ async function loadData() {
     renderChart(data);
 }
 
-// function loadData() {
-//     const data = {
-//         labels: ["10AM", "11AM", "12PM", "1PM", "2PM"],
-//         values: [10, 25, 15, 30, 20]
-//     };
-
-//     renderChart(data);
-// }
 
 function renderChart(data) {
     const ctx = document.getElementById("chart").getContext("2d");
@@ -58,26 +50,3 @@ function renderChart(data) {
 }
 
 
-// function renderChart(data) {
-//     const ctx = document.getElementById("chart").getContext("2d");
-
-//     if (chart) chart.destroy();
-
-//     chart = new Chart(ctx, {
-//         type: 'line',
-//         data: {
-//             labels: data.labels,
-//             datasets: [{
-//                 label: 'Test Data',
-//                 data: data.values,
-//                 borderWidth: 2,
-//                 borderColor: 'blue',
-//                 pointRadius: 5,
-//                 fill: false
-//             }]
-//         },
-//         options: {
-//             responsive: true
-//         }
-//     });
-// }
