@@ -80,19 +80,40 @@ def insert_rows(cursor, conn, rows):
         coil_id = safe_get(row, 4, None)
         coil_fk = get_coil_fk(cursor, coil_id)   #  NEW
 
-        data_to_insert.append((
-            safe_get(row, 0, None),
-            safe_get(row, 1, None),
-            safe_get(row, 2, ""),
-            safe_get(row, 3, ""),
-            coil_fk,  
-            safe_get(row, 5, None),
-            safe_get(row, 6, None),
-            safe_get(row, 7, None),
-            safe_get(row, 8, None),
-            safe_get(row, 9, None),
-            safe_get(row, 10, "")
-        ))
+        for row in rows:
+            if len(row) < 11:
+                continue
+
+    coil_id = safe_get(row, 4, None)
+    coil_fk = get_coil_fk(cursor, coil_id)
+
+    # Detect if name exists
+    possible_name = safe_get(row, 8, "")
+
+    if possible_name.replace(".", "").isdigit():
+        # Name missing
+        name = None
+        width = safe_get(row, 8, None)
+        alloy = safe_get(row, 9, "")
+    else:
+        # Name present
+        name = possible_name
+        width = safe_get(row, 9, None)
+        alloy = safe_get(row, 10, "")
+
+    data_to_insert.append((
+        safe_get(row, 0, None),
+        safe_get(row, 1, None),
+        safe_get(row, 2, ""),
+        safe_get(row, 3, ""),
+        coil_fk,
+        safe_get(row, 5, None),
+        safe_get(row, 6, None),
+        safe_get(row, 7, None),
+        name,
+        width,
+        alloy
+    ))
 
     if data_to_insert:
         cursor.executemany(query, data_to_insert)

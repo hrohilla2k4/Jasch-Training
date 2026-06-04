@@ -2,176 +2,407 @@
 
 let rawData = [];
 let chart = null;
-
+let passWiseData = [];
+let passRawData = [];
+let currentFixedSetPoint = null;
 
 async function loadData() {
-    const date = document.getElementById("datePicker").value;
-    const coilId = document.getElementById("coilDropdown").value;
-    const setPoint = document.getElementById("setPointDropDown").value;
 
-    if (!date || !coilId || !setPoint) {
-        alert("Please select Date, Coil ID and Set Point");
+    const date =
+        document.getElementById("datePicker").value;
+
+    const coilId =
+        document.getElementById("coilDropdown").value;
+
+    if (!date || !coilId) {
+        alert("Please select Date and Coil ID");
         return;
     }
 
     const res = await fetch(
-        `http://127.0.0.1:5000/api/data/histogram?date=${date}&coil_fk=${coilId}&set_point=${setPoint}`
+        `http://127.0.0.1:5000/api/data/histogram?date=${date}&coil_fk=${coilId}`
     );
 
     const data = await res.json();
 
     rawData = data.raw;
 
-    console.log("Histogram API Data:", rawData);
+    applyDeviation();
+
+    console.log(
+        "Histogram API Data:",
+        rawData
+    );
 }
 
-// Modal open
-function openModal() {
-    document.getElementById("modal").style.display = "block";
-}
 
+// ==========================
+// APPLY DEVIATION
+// ==========================
 function applyDeviation() {
+
     if (!rawData.length) {
         console.log("No data loaded");
         return;
     }
 
-    const deviation = Number(document.getElementById("deviation").value);
+    const deviation = Number(
+        document.getElementById("deviation").value
+    );
 
-    const { bins, totalLength, inRangeLength } =
-        buildHistogram(deviation);
+    const selectedPass =
+        document.getElementById("passDropdown").value;
+
+    let filteredData = rawData;
+
+    // ==========================
+    // PASS FILTER
+    // ==========================
+    if (selectedPass) {
+
+        const selected = passWiseData.find(
+            p => p.passNumber == selectedPass
+        );
+
+        if (selected) {
+
+            const passTimes = selected.rows.map(
+                r => r.time_col
+            );
+
+            filteredData = rawData.filter(
+                row =>
+                    passTimes.includes(row.time_col)
+            );
+        }
+
+        if (filteredData.length > 0) {
+
+    const passSetPoint =
+        Number(filteredData[0].set_point);
+
+    currentFixedSetPoint =
+        passSetPoint;
+
+    document.getElementById(
+        "selectedPassSetPoint"
+    ).innerText =
+        `Set Point: ${passSetPoint}`;
+}
+    }
+
+    // ==========================
+    // BUILD HISTOGRAM
+    // ==========================
+    const {
+        bins,
+        totalRows,
+        inRangeRows
+    } = buildHistogram(
+        deviation,
+        filteredData
+    );
 
     console.log("FINAL BINS:", bins);
-    console.log("TOTAL LENGTH:", totalLength);
 
-    document.getElementById("totalLength").innerText =
-    `Total Length: ${totalLength.toFixed(2)}`;
+    // ==========================
+    // TOTAL ROWS
+    // ==========================
+    document.getElementById(
+        "totalLength"
+    ).innerText =
+        `Total Rows: ${totalRows}`;
 
+    // ==========================
+    // DRAW HISTOGRAM
+    // ==========================
     drawHistogram(bins);
 
-    const inPct = totalLength ? (inRangeLength / totalLength) * 100 : 0;
+    // ==========================
+    // PERCENTAGES
+    // ==========================
+    const inPct = totalRows
+        ? (inRangeRows / totalRows) * 100
+        : 0;
+
     const outPct = 100 - inPct;
 
-    document.getElementById("inRangePct").innerText =
+    document.getElementById(
+        "inRangePct"
+    ).innerText =
         `In Range: ${inPct.toFixed(2)}%`;
 
-    document.getElementById("outRangePct").innerText =
+    document.getElementById(
+        "outRangePct"
+    ).innerText =
         `Out of Range: ${outPct.toFixed(2)}%`;
+
+    fetchDecision();
 }
 
-// ✅ FIXED TIME PARSER
+
+// ==========================
+// DECISION
+// ==========================
+async function fetchDecision() {
+
+    const coilId =
+        document.getElementById("coilDropdown").value;
+
+    const date =
+        document.getElementById("datePicker").value;
+
+    const deviation =
+        document.getElementById("deviation").value;
+
+    const res = await fetch(
+        `http://127.0.0.1:5000/api/decision?coil_fk=${coilId}&date=${date}&deviation=${deviation}`
+    );
+
+    const data = await res.json();
+
+    const decisionBox =
+        document.getElementById("decisionBox");
+
+    let message = "";
+
+    if (data.decision === "BUY") {
+        message = " BUY THIS COIL";
+    }
+
+    else if (data.decision === "REVIEW") {
+        message = " REVIEW MANUALLY";
+    }
+
+    else {
+        message = " DO NOT BUY THIS COIL";
+    }
+
+    decisionBox.innerHTML = `
+        <div style="font-size:18px; font-weight:bold;">
+            ${message}
+        </div>
+    `;
+
+    if (data.decision === "BUY") {
+        decisionBox.style.color = "green";
+    }
+
+    else if (data.decision === "REVIEW") {
+        decisionBox.style.color = "orange";
+    }
+
+    else {
+        decisionBox.style.color = "red";
+    }
+}
+
+
+// ==========================
+// TIME PARSER
+// ==========================
 function parseTime(row) {
+
     return new Date(row.date_col).getTime() +
            timeToMs(row.time_col);
 }
 
 function timeToMs(timeStr) {
-    const [hh, mm, ss] = timeStr.split(":").map(Number);
-    return ((hh * 3600) + (mm * 60) + ss) * 1000;
+
+    const [hh, mm, ss] =
+        timeStr.split(":").map(Number);
+
+    return (
+        (
+            (hh * 3600) +
+            (mm * 60) +
+            ss
+        ) * 1000
+    );
 }
 
-// 🔥 CORE LOGIC (FINAL)
-function buildHistogram(deviation) {
-    debugger; 
-    const bins = {};
-    let totalLength = 0;
-    let inRangeLength = 0;
 
-    // create bins
-    for (let i = -deviation; i <= deviation; i++) {
+// ==========================
+// HISTOGRAM CORE
+// ==========================
+function buildHistogram(
+    deviation,
+    dataset
+) {
+
+    const bins = {};
+
+    let totalRows = 0;
+
+    let inRangeRows = 0;
+
+    // ==========================
+    // CREATE BINS
+    // ==========================
+    for (
+        let i = -deviation;
+        i <= deviation;
+        i++
+    ) {
         bins[i] = 0;
     }
 
-    // ✅ FIXED SORT (IMPORTANT)
-    const sorted = [...rawData].sort((a, b) => {
-        return parseTime(a) - parseTime(b);
-    });
+    // ==========================
+    // SORT
+    // ==========================
+    const sorted = [...dataset].sort(
+        (a, b) => {
+            return parseTime(a) - parseTime(b);
+        }
+    );
 
-    for (let i = 1; i < sorted.length; i++) {
+    if (!sorted.length) {
 
-        const prev = sorted[i - 1];
+        return {
+            bins,
+            totalRows,
+            inRangeRows
+        };
+    }
+
+    // ==========================
+    // FIXED SETPOINT
+    // ==========================
+    const fixedSetPoint =
+    currentFixedSetPoint;
+
+    console.log(
+    "FIXED SETPOINT = ",
+    fixedSetPoint
+);
+    // ==========================
+    // LOOP
+    // ==========================
+    for (let i = 0; i < sorted.length; i++) {
+
         const curr = sorted[i];
 
-        const t1 = parseTime(prev);
-        const t2 = parseTime(curr);
+        const value =
+            Number(curr.actual_thickness);
 
-        const deltaTime = ((t2 - t1) / 1000)/60;
-        
-
-        if (!deltaTime || deltaTime <= 0) continue;
-
-        const speed = Number(curr.line_speed);
-        const value = Number(curr.actual_thickness);
-        const setpoint =Number(curr.set_point); //  FIXED HERE
-
-        if (isNaN(speed) || isNaN(value) || isNaN(setpoint)) {
-            console.log(" Skipping bad row:", curr);
+        if (isNaN(value)) {
             continue;
         }
 
-        const length = deltaTime * speed;
+        totalRows++;
 
-        if (length <= 0) continue;
+        let rawDev =
+            value - fixedSetPoint;
 
-        totalLength += length;
-        // console.log("Added into total length = ", length);
+        let dev =
+            Math.trunc(rawDev);
 
-        let rawDev = value - setpoint;
-        let dev = Math.round(rawDev);
+        // ==========================
+        // CLAMP
+        // ==========================
+        if (dev < -deviation) {
+            dev = -deviation;
+        }
 
-        // clamp
-        if (dev < -deviation) dev = -deviation;
-        if (dev > deviation) dev = deviation;
+        if (dev > deviation) {
+            dev = deviation;
+        }
 
-        bins[dev] += length;
+        bins[dev] += 1;
 
-        if (rawDev >= -deviation && rawDev <= deviation) {
-            inRangeLength += length;
+        // ==========================
+        // INRANGE
+        // ==========================
+        if (
+            value >=
+                (fixedSetPoint - deviation)
+
+            &&
+
+            value <=
+                (fixedSetPoint + deviation)
+        ) {
+
+            inRangeRows++;
         }
     }
 
-    return { bins, totalLength, inRangeLength };
+    return {
+        bins,
+        totalRows,
+        inRangeRows
+    };
 }
 
-// 🔥 DRAW CHART
+
+// ==========================
+// DRAW HISTOGRAM
+// ==========================
 function drawHistogram(bins) {
 
-    console.log("Entering into drawHistogram")
+    console.log(
+        "Entering into drawHistogram"
+    );
+
     const labels = Object.keys(bins)
         .map(Number)
         .sort((a, b) => a - b);
 
-    const values = labels.map(l => bins[l]);
+    const values = labels.map(
+        l => bins[l]
+    );
 
-    console.log("Chart Values:", values);
+    console.log(
+        "Chart Values:",
+        values
+    );
 
-    const ctx = document.getElementById("histogramchart").getContext("2d");
+    const ctx =
+        document
+            .getElementById("histogramchart")
+            .getContext("2d");
 
-    if (chart) chart.destroy();
+    if (chart) {
+        chart.destroy();
+    }
 
     chart = new Chart(ctx, {
-        type: 'bar',
+
+        type: "bar",
+
         data: {
+
             labels: labels,
-            datasets: [{
-                label: 'Deviation Distribution (Length)',
-                data: values
-            }]
+
+            datasets: [
+                {
+                    label:
+                        "Deviation Distribution (Rows)",
+
+                    data: values
+                }
+            ]
         },
+
         options: {
+
             responsive: true,
+
             scales: {
+
                 x: {
                     title: {
                         display: true,
                         text: "Deviation"
                     }
                 },
+
                 y: {
                     title: {
                         display: true,
-                        text: "Coil Length"
+                        text: "Rows"
                     },
+
                     beginAtZero: true
                 }
             }
@@ -180,16 +411,204 @@ function drawHistogram(bins) {
 }
 
 
-document.addEventListener("DOMContentLoaded", function () {
-    const histogramBtn = document.getElementById("drawHistogramBtn");
+// ==========================
+// PASS GENERATION
+// ==========================
+function generatePasses() {
 
-    histogramBtn.addEventListener("click", async function () {
-        console.log("Draw Histogram button clicked");
+    const dropdown =
+        document.getElementById(
+            "passDropdown"
+        );
+
+    dropdown.innerHTML = `
+        <option value="">
+            All Passes
+        </option>
+    `;
+
+    passWiseData = [];
+
+    if (!passRawData.length) {
+        console.log("No raw data found");
+        return;
+    }
+
+    const sortedData =
+        [...passRawData].sort(
+            (a, b) => {
+                return (
+                    parseTime(a) -
+                    parseTime(b)
+                );
+            }
+        );
+
+    let currentPass = 1;
+
+    let prevDirection =
+        String(sortedData[0].direction);
+
+    let currentPassRows = [];
+
+    sortedData.forEach((row) => {
+
+        const currentDirection =
+            String(row.direction);
+
+        if (
+            currentDirection !==
+            prevDirection
+        ) {
+
+            passWiseData.push({
+
+                passNumber:
+                    currentPass,
+
+                direction:
+                    prevDirection,
+
+                rows:
+                    [...currentPassRows]
+            });
+
+            currentPass++;
+
+            currentPassRows = [];
+        }
+
+        currentPassRows.push(row);
+
+        prevDirection =
+            currentDirection;
+    });
+
+    if (currentPassRows.length > 0) {
+
+        passWiseData.push({
+
+            passNumber:
+                currentPass,
+
+            direction:
+                prevDirection,
+
+            rows:
+                [...currentPassRows]
+        });
+    }
+
+    console.log(
+        "Generated Passes:",
+        passWiseData
+    );
+
+    // ==========================
+    // DROPDOWN
+    // ==========================
+    passWiseData.forEach(pass => {
+
+        const option =
+            document.createElement(
+                "option"
+            );
+
+        option.value =
+            pass.passNumber;
+
+        option.textContent =
+            `${pass.direction} (Pass ${pass.passNumber})`;
+
+        dropdown.appendChild(option);
+    });
+
+    if (passWiseData.length > 0) {
+
+        dropdown.value =
+            passWiseData[0].passNumber;
+    }
+
+    document.getElementById(
+        "totalPasses"
+    ).innerText =
+        `Total Passes: ${passWiseData.length}`;
+}
+
+
+// ==========================
+// LOAD PASS DATA
+// ==========================
+async function loadPassData() {
+
+    const date =
+        document.getElementById(
+            "datePicker"
+        ).value;
+
+    const coilId =
+        document.getElementById(
+            "coilDropdown"
+        ).value;
+
+    if (!date || !coilId) {
+        return;
+    }
+
+    const res = await fetch(
+        `http://127.0.0.1:5000/api/passes?date=${date}&coil_fk=${coilId}`
+    );
+
+    const data =
+        await res.json();
+
+    passRawData = data;
+
+    generatePasses();
+}
+
+
+// ==========================
+// EVENTS
+// ==========================
+document.getElementById(
+    "coilDropdown"
+).addEventListener(
+    "change",
+    async function () {
+
+        await loadPassData();
+
+        await loadChartData();
 
         await loadData();
+    }
+);
 
-        console.log("Data loaded successfully");
 
-        openModal();   // remove this if you don't want modal
-    });
-});
+document.getElementById(
+    "deviation"
+).addEventListener(
+    "input",
+    function () {
+
+        if (!rawData.length) {
+            return;
+        }
+
+        applyDeviation();
+    }
+);
+
+
+document.getElementById(
+    "passDropdown"
+).addEventListener(
+    "change",
+    async function () {
+
+        await loadChartData();
+
+        applyDeviation();
+    }
+);

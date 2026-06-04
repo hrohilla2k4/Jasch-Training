@@ -7,15 +7,19 @@ let lineChart;
 async function loadChartData() {
     const type = document.getElementById("chartTypeDropdown").value;
     const date = document.getElementById("datePicker").value;
+    const coilId = document.getElementById("coilDropdown").value;
 
     if (!date) {
         alert("Please select date");
         return;
     }
 
-    const res = await fetch(
-        `http://127.0.0.1:5000/api/data/chart?type=${type}&date=${date}`
-    );
+    const selectedPass =
+document.getElementById("passDropdown").value;
+
+const res = await fetch(
+`http://127.0.0.1:5000/api/data/chart?type=${type}&date=${date}&coil_fk=${coilId}&pass=${selectedPass}`
+);
 
     const data = await res.json();
 
@@ -71,4 +75,12 @@ document.addEventListener("DOMContentLoaded", function () {
         loadChartData();
     });
 });
+
+document.getElementById("chartTypeDropdown")
+.addEventListener("change", function () {
+    console.log("Chart type changed");
+
+    loadChartData();
+});
+
 

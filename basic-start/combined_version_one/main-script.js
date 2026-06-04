@@ -1,29 +1,42 @@
-const date = document.getElementById("datePicker").value;
+// const date = document.getElementById("datePicker").value;
 
 async function loadDropDownData() {
-    const response = await fetch(`http://127.0.0.1:5000/api/coils?date=${date}`);
+    const date =
+        document.getElementById("datePicker").value;
 
-    const setPoints = await fetch(`http://127.0.0.1:5000/api/set-points`)
+    if (!date) return;
+
+    const response = await fetch(
+        `http://127.0.0.1:5000/api/coils?date=${date}`
+    );
+
     const data = await response.json();
-    const setPointsData = await setPoints.json();   
 
-    const dropdown = document.getElementById("coilDropdown");
-    const set_points_dropdown = document.getElementById("setPointDropDown")
-    console.log("Setdata = ", setPointsData); 
+    const dropdown =
+        document.getElementById("coilDropdown");
 
+    // clear old options
+    dropdown.innerHTML = `
+    <option value="">
+        Select Coil ID
+    </option>
+`;
     data.forEach(coil => {
-        const option = document.createElement("option");
-        option.value = coil.id;          // DB primary key
-        option.textContent = coil.coil_id; // Actual coil number
+        const option =
+            document.createElement("option");
+
+        option.value = coil.id;
+        option.textContent = coil.coil_id;
+
         dropdown.appendChild(option);
     });
 
-    setPointsData.forEach(setPoint => {
-        const option = document.createElement("option");
-        option.value = setPoint.set_point;          
-        option.textContent = setPoint.set_point; 
-        set_points_dropdown.appendChild(option);
-    });
+    
 }
-
 loadDropDownData();
+
+document.getElementById("datePicker")
+.addEventListener("change", function () {
+    console.log("date type changed");
+    loadDropDownData(); 
+});
